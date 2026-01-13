@@ -9,12 +9,12 @@
 typedef struct{
     int line;
     char *targetString;
-    char *hits[];
+    int *hits[];
 } Word;
 
-int writeToFile(char *writePath, char *data[]) {
+int writeToFile(char *writePath) {
     FILE *fptr;
-    fptr = fopen(writePath, 'w');
+    fptr = fopen(writePath, "w");
 
     if (fptr == NULL) {
         fprintf(stderr, "Error: Could not save to %s, please use another location.\n", writePath);
@@ -65,7 +65,7 @@ int singleSearch(char *filePath, char *input) {
             if (strstr(bufferLower, wordLower)) {
                 printf("Found %s on line %d\n", singleTarget.targetString, singleTarget.line);
                 // TODO: write the data we capture into a file, preferably a CSV
-                writeToFile("./results.csv", singleTarget.hits);
+                writeToFile("./results.csv");
             }
             singleTarget.line++;
         }
