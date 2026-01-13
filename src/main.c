@@ -6,8 +6,9 @@
 #include <sys/stat.h>
 #include <limits.h>
 
+#define MAX_HIT_LENGTH 2048
 typedef struct{
-    int line;
+    int hitCount;
     char *targetString;
     int *hits[];
 } Word;
@@ -23,9 +24,8 @@ int writeToFile(char *writePath, Word *singleTarget) {
     }
 
     // TODO: Use our hits property in the Word Structure to write everything to a CSV file
+    // Write the Header file for the first line
     fprintf(fptr, "filepath,lineNumber");
-    // Im think i concat the values together with a comma in between then write to file under a new line
-    // Did check on Google slides import and it will seperate into cells there
 
     fclose(fptr);
 }
@@ -38,45 +38,47 @@ int toLowercase(char *newWord, const char *oldWord) {
     *newWord = '\0';
 }
 
-int singleSearch(char *filePath, char *input) {
+int singleSearch(char *filePath, char *input, Word *targetSearch) {
     // Initialize File pointer then open file
     FILE *fptr;
     fptr = fopen(filePath, "r");
+    int i = 1;
 
     // initialize the reading buffer
     char buffer[1024];
     char bufferLower[1024];
-
-    // initialize the target word
-    //singleTarget.targetString = input;
     char wordLower[256];
-    //toLowercase(wordLower, singleTarget.targetString);
-    //singleTarget.line = 1;
-
+    toLowercase(wordLower, targetSearch->targetString);
+    
     if (fptr == NULL) {
         fprintf(stderr, "File was not found, please make sure the path is correct.");
         return 1;
     }
-    else{
-        /* This is for testing purposes, since we are using this in our folder function
-        and it will spam the log really bad*/
-        //printf("File was found! looking for the word: %s\n", singleTarget.targetString);
-        
+    else {
         while (fgets(buffer, sizeof(buffer), fptr)) {
             toLowercase(bufferLower, buffer);
             if (strstr(bufferLower, wordLower)) {
-                //printf("Found %s on line %d\n", singleTarget.targetString, singleTarget.line);
+
+                printf("Found %s on line %d\n", targetSearch->targetString, i);
+
                 // TODO: write the data we capture into a file, preferably a CSV
-                writeToFile("./results.csv");
+                char *csvLine[2040];
+
+                snprintf(csvLine, sizeof(csvLine), "%s,%d", filePath, i);
+
+                strncpy(targetSearch->hits, targetSearch->hitCount, MAX_HIT_LENGTH - 1);
+                targetSearch->hits[MAX_HIT_LENGTH - 1] = '\0';
+                //writeToFile("./results.csv", &targetSearch);
+                targetSearch->hitCount++;
             }
-            //singleTarget.line++;
+            i++;
         }
         fclose(fptr);
     }
     return 0;
 }
 
-int folderSearch(char *folderPath, int recursiveBool, char *input) {
+int folderSearch(char *folderPath, int recursiveBool, char *input, Word *targetSearch) {
     DIR *dir = opendir(folderPath);
     if (!dir) {
         perror(folderPath);
@@ -122,7 +124,7 @@ int folderSearch(char *folderPath, int recursiveBool, char *input) {
         }
         // Recursive function
         else if (S_ISDIR(st.st_mode) && recursiveBool) {
-            folderSearch(path, recursiveBool, input);
+            folderSearch(path, recursiveBool, input, &targetSearch);
         }
     }
     closedir(dir);
@@ -174,7 +176,7 @@ int main(int argc, char *argv[])
         }
     }
     
-    // Input Validation
+    // Input validation
     if (flagHelp) {
         printHelp(argv[0]);
         return 0;
@@ -187,13 +189,17 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Error: -r can only be used with -f\n");
         return 1;
     }
+
+    // Load Struct information after input validation
+     targetSearch.targetString = argv[3];
+     targetSearch.hitCount = 0;
     
-    // Executes the actual program
+    // Executes the actual program, targetString is loaded into struct before
     if (flagSingle) {
-        singleSearch(argv[2], argv[3]);
+        singleSearch(argv[2], argv[3], &targetSearch);
     }
     else if (flagFolder) {
-        folderSearch(argv[2], flagRecursive, argv[3]);
+        folderSearch(argv[2], flagRecursive, argv[3], &targetSearch);
     }
     return 0;
 }
