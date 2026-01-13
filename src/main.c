@@ -21,14 +21,16 @@ int toLowercase(char *newWord, const char *oldWord) {
 }
 
 int singleSearch(char *filePath, char *input) {
+    // Initialize File pointer then open file
     FILE *fptr;
     Word singleTarget;
     fptr = fopen(filePath, "r");
 
+    // initialize the reading buffer
     char buffer[1024];
     char bufferLower[1024];
 
-    // initialize target word and make case insensitive
+    // initialize the target word
     singleTarget.targetString = input;
     char wordLower[256];
     toLowercase(wordLower, singleTarget.targetString);
@@ -39,15 +41,15 @@ int singleSearch(char *filePath, char *input) {
         return 1;
     }
     else{
+        /* This is for testing purposes, since we are using this in our folder function
+        and it will spam the log really bad*/
         printf("File was found! looking for the word: %s\n", singleTarget.targetString);
         
-
         while (fgets(buffer, sizeof(buffer), fptr)) {
-            // Make the line buffer for the current line case insensitive
             toLowercase(bufferLower, buffer);
-
             if (strstr(bufferLower, wordLower)) {
                 printf("Found %s on line %d\n", singleTarget.targetString, singleTarget.line);
+                // TODO: write the data we capture into a file, preferably a CSV
             }
             singleTarget.line++;
         }
@@ -64,57 +66,49 @@ int folderSearch(char *folderPath, int recursiveBool, char *input) {
     }
 
     struct dirent *dirEntry;
-    
 
     while ((dirEntry = readdir(dir)) != NULL) {
         // Skip over '.' and '..'
-        if (strcmp(dirEntry->d_name, "..") == 0 || strcmp(dirEntry->d_name, ".") == 0) {
+        if (strcmp(dirEntry->d_name, ".") == 0 ||
+            strcmp(dirEntry->d_name, "..") == 0)
             continue;
-        }
 
         char path[1024];
 
-        // Catch in case a path is way too long for the tool to handle
+        /* Catch in case a path is way too long for the tool to handle, 
+        not sure yet if I should skip the path or terminate the app in the event this passes. */
         size_t sizeNeeded = strlen(folderPath) + 1 + strlen(dirEntry->d_name) + 1;
         if (sizeNeeded > sizeof(path)) {
             fprintf(stderr, "Path too long, skipping: %s/%s\n", folderPath, dirEntry->d_name);
             continue;
         }
 
+        memset(path, 0xAA, sizeof(path));
         snprintf(path, sizeof(path), "%s/%s", folderPath, dirEntry->d_name);
-    }
-    /*
-    
-    char path[PATH_MAX];
 
-    if (dir == NULL) {
-        fprintf(stderr, "Error: Directory cannot be opened, either due to not being a valid directory or needs Admin permissions.");
-        return 1;
-    }
-
-    // Reads all the files / folders of the current directory being searched
-    
-    while ((dirEntry = readdir(dir)) != NULL)
-    {
-        // Skip over '.' and '..'
-        if (strcmp(dirEntry->d_name, "..")) {
-            continue;
-        }
-        
+        // Stat gathers file metadata which st_mode tells us the file type and permissions
         struct stat st;
-        if (stat(path, &st) == -1) {
+        if (stat(path, &st) != 0) {
+            perror(path);
             continue;
         }
-        if (S_ISREG(st.st_mode)) {
-            printf(path);
-            singleSearch(path, input);
+
+        // Ignore Symbolic Links (pointer to another file or directory)
+        if (S_ISLNK(st.st_mode)) {
+            continue;
         }
-        else if (S_ISREG(st.st_mode && recursiveBool)) {
+        // Look for our word if it is a regular file
+        if (S_ISREG(st.st_mode)) {
+            printf("%s\n",path);
+            //singleSearch(path, input);
+        }
+        // Recursive function
+        else if (S_ISDIR(st.st_mode) && recursiveBool) {
             folderSearch(path, recursiveBool, input);
         }
     }
     closedir(dir);
-    */
+
     return 0;
 }
 
@@ -140,22 +134,21 @@ int main(int argc, char *argv[])
     int flagRecursive = 0;
     int flagHelp = 0;
 
-    int argumentIndex = 1;
-
-    while (i < argc && argv[i][0] == '-'){
-        for (int j = 1; argv[i][j] != '\0'; j++) {
-            switch (argv[i][j])
-            {
-                case 's': flagSingle = 1; break;
-                case 'f': flagFolder = 1; break;
-                case 'r': flagRecursive = 1;break;
-                case 'h': flagHelp = 1; break;
-                default:
-                    fprintf(stderr, "Error: Improper syntax. Please use %s -h to see the available flags.", argv[0]);
-                    return 1;
+    for (int i = 1; i < argc; i++){
+        if (argv[i][0] == '-') {
+            for (int j = 1; argv[i][j] != '\0'; j++) {
+                switch (argv[i][j])
+                {
+                    case 's': flagSingle = 1; break;
+                    case 'f': flagFolder = 1; break;
+                    case 'r': flagRecursive = 1;break;
+                    case 'h': flagHelp = 1; break;
+                    default:
+                        fprintf(stderr, "Error: Improper syntax. Please use %s -h to see the available flags.", argv[0]);
+                        return 1;
+                }
             }
         }
-        i++;
     }
     
     // Input Validation
@@ -177,7 +170,7 @@ int main(int argc, char *argv[])
         singleSearch(argv[2], argv[3]);
     }
     else if (flagFolder) {
-        folderSearch(argv[2], flagFolder, argv[3]);
+        folderSearch(argv[2], flagRecursive, argv[3]);
     }
     return 0;
 }
