@@ -12,8 +12,9 @@ typedef struct{
     int *hits[];
 } Word;
 
-int writeToFile(char *writePath) {
+int writeToFile(char *writePath, Word *singleTarget) {
     FILE *fptr;
+    //struct &singleTarget;
     fptr = fopen(writePath, "w");
 
     if (fptr == NULL) {
@@ -22,7 +23,9 @@ int writeToFile(char *writePath) {
     }
 
     // TODO: Use our hits property in the Word Structure to write everything to a CSV file
-    fprintf(fptr, "This is a test");
+    fprintf(fptr, "filepath,lineNumber");
+    // Im think i concat the values together with a comma in between then write to file under a new line
+    // Did check on Google slides import and it will seperate into cells there
 
     fclose(fptr);
 }
@@ -38,7 +41,6 @@ int toLowercase(char *newWord, const char *oldWord) {
 int singleSearch(char *filePath, char *input) {
     // Initialize File pointer then open file
     FILE *fptr;
-    Word singleTarget;
     fptr = fopen(filePath, "r");
 
     // initialize the reading buffer
@@ -46,10 +48,10 @@ int singleSearch(char *filePath, char *input) {
     char bufferLower[1024];
 
     // initialize the target word
-    singleTarget.targetString = input;
+    //singleTarget.targetString = input;
     char wordLower[256];
-    toLowercase(wordLower, singleTarget.targetString);
-    singleTarget.line = 1;
+    //toLowercase(wordLower, singleTarget.targetString);
+    //singleTarget.line = 1;
 
     if (fptr == NULL) {
         fprintf(stderr, "File was not found, please make sure the path is correct.");
@@ -58,16 +60,16 @@ int singleSearch(char *filePath, char *input) {
     else{
         /* This is for testing purposes, since we are using this in our folder function
         and it will spam the log really bad*/
-        printf("File was found! looking for the word: %s\n", singleTarget.targetString);
+        //printf("File was found! looking for the word: %s\n", singleTarget.targetString);
         
         while (fgets(buffer, sizeof(buffer), fptr)) {
             toLowercase(bufferLower, buffer);
             if (strstr(bufferLower, wordLower)) {
-                printf("Found %s on line %d\n", singleTarget.targetString, singleTarget.line);
+                //printf("Found %s on line %d\n", singleTarget.targetString, singleTarget.line);
                 // TODO: write the data we capture into a file, preferably a CSV
                 writeToFile("./results.csv");
             }
-            singleTarget.line++;
+            //singleTarget.line++;
         }
         fclose(fptr);
     }
@@ -144,6 +146,7 @@ void printHelp(const char *application){
 
 int main(int argc, char *argv[])
 {
+    Word targetSearch;
     int i = 1;
     int flagSingle = 0;
     int flagFolder = 0;
