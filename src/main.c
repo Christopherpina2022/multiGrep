@@ -12,6 +12,21 @@ typedef struct{
     char *hits[];
 } Word;
 
+int writeToFile(char *writePath, char *data[]) {
+    FILE *fptr;
+    fptr = fopen(writePath, 'w');
+
+    if (fptr == NULL) {
+        fprintf(stderr, "Error: Could not save to %s, please use another location.\n", writePath);
+        return 1;
+    }
+
+    // TODO: Use our hits property in the Word Structure to write everything to a CSV file
+    fprintf(fptr, "This is a test");
+
+    fclose(fptr);
+}
+
 int toLowercase(char *newWord, const char *oldWord) {
     // append every character in the current buffer to the lowerbuffer but as lowercase letters, then add the terminating character
     while (*oldWord) {
@@ -50,6 +65,7 @@ int singleSearch(char *filePath, char *input) {
             if (strstr(bufferLower, wordLower)) {
                 printf("Found %s on line %d\n", singleTarget.targetString, singleTarget.line);
                 // TODO: write the data we capture into a file, preferably a CSV
+                writeToFile("./results.csv", singleTarget.hits);
             }
             singleTarget.line++;
         }
@@ -133,6 +149,10 @@ int main(int argc, char *argv[])
     int flagFolder = 0;
     int flagRecursive = 0;
     int flagHelp = 0;
+
+    // TODO: write a method to handle manual save locations and a default save location. be sure
+    // to let the end user know it's a feature in -h afterwards.
+    char *defaultPath = "./results.csv";
 
     for (int i = 1; i < argc; i++){
         if (argv[i][0] == '-') {
