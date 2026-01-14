@@ -8,25 +8,26 @@
 
 #define MAX_HIT_LENGTH 2048
 typedef struct{
-    int hitCount;
+    int matchCounter;
+    char *writePath;
     char *targetString;
-    int *hits[];
 } Word;
 
-int writeToFile(char *writePath, Word *singleTarget) {
+int writeToFile(Word *file, char* filePath, int lineNumber) {
     FILE *fptr;
-    //struct &singleTarget;
-    fptr = fopen(writePath, "w");
+    fptr = fopen(file->writePath, "a");
 
     if (fptr == NULL) {
-        fprintf(stderr, "Error: Could not save to %s, please use another location.\n", writePath);
+        fprintf(stderr, "Error: Could not save to %s, please use another location.\n", file->writePath);
         return 1;
     }
 
-    // TODO: Use our hits property in the Word Structure to write everything to a CSV file
-    // Write the Header file for the first line
-    fprintf(fptr, "filepath,lineNumber");
-
+    // Create headers if file is empty
+    if (file->matchCounter == 0) {
+        fprintf(fptr, "filepath,lineNumber");
+    }
+    fprintf(fptr, "%s,%d", filePath, lineNumber);
+    file->matchCounter++;
     fclose(fptr);
 }
 
@@ -38,7 +39,7 @@ int toLowercase(char *newWord, const char *oldWord) {
     *newWord = '\0';
 }
 
-int singleSearch(char *filePath, char *input, Word *targetSearch) {
+int singleSearch(char *filePath, char *input, Word *target) {
     // Initialize File pointer then open file
     FILE *fptr;
     fptr = fopen(filePath, "r");
@@ -48,7 +49,7 @@ int singleSearch(char *filePath, char *input, Word *targetSearch) {
     char buffer[1024];
     char bufferLower[1024];
     char wordLower[256];
-    toLowercase(wordLower, targetSearch->targetString);
+    toLowercase(wordLower, target->targetString);
     
     if (fptr == NULL) {
         fprintf(stderr, "File was not found, please make sure the path is correct.");
@@ -59,17 +60,10 @@ int singleSearch(char *filePath, char *input, Word *targetSearch) {
             toLowercase(bufferLower, buffer);
             if (strstr(bufferLower, wordLower)) {
 
-                printf("Found %s on line %d\n", targetSearch->targetString, i);
+                printf("Found %s on line %d\n", target->targetString, i);
 
-                // TODO: write the data we capture into a file, preferably a CSV
-                char *csvLine[2040];
-
-                snprintf(csvLine, sizeof(csvLine), "%s,%d", filePath, i);
-
-                strncpy(targetSearch->hits, targetSearch->hitCount, MAX_HIT_LENGTH - 1);
-                targetSearch->hits[MAX_HIT_LENGTH - 1] = '\0';
-                //writeToFile("./results.csv", &targetSearch);
-                targetSearch->hitCount++;
+                // write the data we capture into CSV
+                writeToFile(target, filePath, i);
             }
             i++;
         }
@@ -78,7 +72,7 @@ int singleSearch(char *filePath, char *input, Word *targetSearch) {
     return 0;
 }
 
-int folderSearch(char *folderPath, int recursiveBool, char *input, Word *targetSearch) {
+int folderSearch(char *folderPath, int recursiveBool, char *input, Word *word) {
     DIR *dir = opendir(folderPath);
     if (!dir) {
         perror(folderPath);
@@ -124,7 +118,7 @@ int folderSearch(char *folderPath, int recursiveBool, char *input, Word *targetS
         }
         // Recursive function
         else if (S_ISDIR(st.st_mode) && recursiveBool) {
-            folderSearch(path, recursiveBool, input, &targetSearch);
+            folderSearch(path, recursiveBool, input, word);
         }
     }
     closedir(dir);
@@ -134,21 +128,24 @@ int folderSearch(char *folderPath, int recursiveBool, char *input, Word *targetS
 
 void printHelp(const char *application){
     printf(
-        "Usage:\n"
-        "%s -s <file> <word> \n"
-        "%s -f [-r] <file> <word> \n"
+        "\nUsage:\n"
+        " %s -s <file> <word>\n"
+        " %s -f[r] <folder> <word> \n"
+        " %s -s <file> <word> <result path>\n"
+        " %s -f[r] <folder> <result path>\n"
         "\nOptions:\n"
         " -s Searches a single file\n"
         " -f Searches a directory\n"
         " -r Recursive search (only works with -f)\n"
-        " -h shows this Help Message\n",
-        application, application
+        " -h shows this help message\n"
+        "\nAdding a result path will change the default (results.csv) that will write in the current directory.",
+        application, application, application, application
     );
 }
 
 int main(int argc, char *argv[])
 {
-    Word targetSearch;
+    Word word;
     int i = 1;
     int flagSingle = 0;
     int flagFolder = 0;
@@ -158,6 +155,7 @@ int main(int argc, char *argv[])
     // TODO: write a method to handle manual save locations and a default save location. be sure
     // to let the end user know it's a feature in -h afterwards.
     char *defaultPath = "./results.csv";
+    word.writePath = defaultPath;
 
     for (int i = 1; i < argc; i++){
         if (argv[i][0] == '-') {
@@ -191,16 +189,16 @@ int main(int argc, char *argv[])
     }
 
     // Load Struct information after input validation
-     targetSearch.targetString = argv[3];
-     targetSearch.hitCount = 0;
+    word.targetString = argv[3];
     
     // Executes the actual program, targetString is loaded into struct before
     if (flagSingle) {
-        singleSearch(argv[2], argv[3], &targetSearch);
+        singleSearch(argv[2], argv[3], &word);
     }
     else if (flagFolder) {
-        folderSearch(argv[2], flagRecursive, argv[3], &targetSearch);
+        folderSearch(argv[2], flagRecursive, argv[3], &word);
     }
+
+    printf("The query has returned: %d results.\nthe files will be saved in: %s", word.matchCounter, word.writePath);
     return 0;
 }
-
