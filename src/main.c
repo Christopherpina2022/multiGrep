@@ -17,16 +17,11 @@ int writeToFile(Word *file, char* filePath, int lineNumber) {
     FILE *fptr;
     fptr = fopen(file->writePath, "a");
 
-    if (fptr == NULL) {
-        fprintf(stderr, "Error: Could not save to %s, please use another location.\n", file->writePath);
-        return 1;
-    }
-
-    // Create headers if file is empty
+    // Create headers if first line
     if (file->matchCounter == 0) {
-        fprintf(fptr, "filepath,lineNumber");
+        fprintf(fptr, "filepath,lineNumber\n");
     }
-    fprintf(fptr, "%s,%d", filePath, lineNumber);
+    fprintf(fptr, "%s,%d\n", filePath, lineNumber);
     file->matchCounter++;
     fclose(fptr);
 }
@@ -39,7 +34,7 @@ int toLowercase(char *newWord, const char *oldWord) {
     *newWord = '\0';
 }
 
-int singleSearch(char *filePath, char *input, Word *target) {
+int singleSearch(char *filePath, Word *target) {
     // Initialize File pointer then open file
     FILE *fptr;
     fptr = fopen(filePath, "r");
@@ -56,13 +51,10 @@ int singleSearch(char *filePath, char *input, Word *target) {
         return 1;
     }
     else {
+        // write the data we capture into a CSV file
         while (fgets(buffer, sizeof(buffer), fptr)) {
             toLowercase(bufferLower, buffer);
             if (strstr(bufferLower, wordLower)) {
-
-                printf("Found %s on line %d\n", target->targetString, i);
-
-                // write the data we capture into CSV
                 writeToFile(target, filePath, i);
             }
             i++;
@@ -72,7 +64,7 @@ int singleSearch(char *filePath, char *input, Word *target) {
     return 0;
 }
 
-int folderSearch(char *folderPath, int recursiveBool, char *input, Word *word) {
+int folderSearch(char *folderPath, int recursiveBool, Word *word) {
     DIR *dir = opendir(folderPath);
     if (!dir) {
         perror(folderPath);
@@ -89,15 +81,13 @@ int folderSearch(char *folderPath, int recursiveBool, char *input, Word *word) {
 
         char path[1024];
 
-        /* Catch in case a path is way too long for the tool to handle, 
-        not sure yet if I should skip the path or terminate the app in the event this passes. */
+        // Skip catch in case a path is way too long for the tool to handle
         size_t sizeNeeded = strlen(folderPath) + 1 + strlen(dirEntry->d_name) + 1;
         if (sizeNeeded > sizeof(path)) {
             fprintf(stderr, "Path too long, skipping: %s/%s\n", folderPath, dirEntry->d_name);
             continue;
         }
 
-        memset(path, 0xAA, sizeof(path));
         snprintf(path, sizeof(path), "%s/%s", folderPath, dirEntry->d_name);
 
         // Stat gathers file metadata which st_mode tells us the file type and permissions
@@ -114,11 +104,11 @@ int folderSearch(char *folderPath, int recursiveBool, char *input, Word *word) {
         // Look for our word if it is a regular file
         if (S_ISREG(st.st_mode)) {
             printf("%s\n",path);
-            //singleSearch(path, input);
+            singleSearch(path, word);
         }
         // Recursive function
         else if (S_ISDIR(st.st_mode) && recursiveBool) {
-            folderSearch(path, recursiveBool, input, word);
+            folderSearch(path, recursiveBool,word);
         }
     }
     closedir(dir);
@@ -145,17 +135,24 @@ void printHelp(const char *application){
 
 int main(int argc, char *argv[])
 {
-    Word word;
+    Word word = {0};
     int i = 1;
     int flagSingle = 0;
     int flagFolder = 0;
     int flagRecursive = 0;
     int flagHelp = 0;
 
-    // TODO: write a method to handle manual save locations and a default save location. be sure
-    // to let the end user know it's a feature in -h afterwards.
+
+    // TODO: write a method to handle manual save locations and a default save location.
     char *defaultPath = "./results.csv";
     word.writePath = defaultPath;
+
+    // Create or wipe the contents of the previous result file before writing to the file
+    FILE *csv = fopen(word.writePath, "w");
+    if (!csv) {
+        fprintf(stderr, "Error: File could not be found. Please make sure you entered a valid csv file path.");
+        return 1;
+    }
 
     for (int i = 1; i < argc; i++){
         if (argv[i][0] == '-') {
@@ -193,12 +190,12 @@ int main(int argc, char *argv[])
     
     // Executes the actual program, targetString is loaded into struct before
     if (flagSingle) {
-        singleSearch(argv[2], argv[3], &word);
+        singleSearch(argv[2],&word);
     }
     else if (flagFolder) {
-        folderSearch(argv[2], flagRecursive, argv[3], &word);
+        folderSearch(argv[2], flagRecursive,&word);
     }
 
-    printf("The query has returned: %d results.\nthe files will be saved in: %s", word.matchCounter, word.writePath);
+    printf("\nThe query has returned %d results.\nthe files will be saved in: %s", word.matchCounter, word.writePath);
     return 0;
 }
